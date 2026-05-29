@@ -7,8 +7,11 @@ breaking your flow. Open it once and keep adding card after card.
 
 - Run the **Insert Flashcard** command (type `/card` in the editor, or open the
   command palette and search for "Insert Flashcard").
-- A popup appears with two boxes — **Question** and **Answer** — and a choice of
-  how you want to be quizzed:
+- A popup appears with a **Question** box and one or more **Answer** boxes:
+  - **One answer** makes a simple inline card (`question >> answer`).
+  - **Two or more answers** (press *+ Add another answer*) make a **list card** —
+    the question with each answer as a child bullet you recall together.
+- You also choose how you want to be quizzed:
   - Question → Answer
   - Answer → Question
   - Both ways

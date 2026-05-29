@@ -32,7 +32,9 @@ export const FlashcardPopup = () => {
   );
 
   const [front, setFront] = useState('');
-  const [back, setBack] = useState('');
+  // One or more answers. One answer => an inline "question >> answer" card.
+  // Two or more answers => a list card (question with child bullets).
+  const [answers, setAnswers] = useState<string[]>(['']);
   const [direction, setDirection] = useState<Direction>('forward');
   const [addedCount, setAddedCount] = useState(0);
   const [message, setMessage] = useState<{ kind: 'error' | 'ok'; text: string } | null>(null);
@@ -50,17 +52,32 @@ export const FlashcardPopup = () => {
     frontRef.current?.focus();
   }, []);
 
+  const setAnswerAt = (i: number, value: string) => {
+    setAnswers((prev) => prev.map((a, idx) => (idx === i ? value : a)));
+  };
+
+  const addAnswerLine = () => {
+    setAnswers((prev) => [...prev, '']);
+  };
+
+  const removeAnswerLine = (i: number) => {
+    setAnswers((prev) => (prev.length <= 1 ? prev : prev.filter((_, idx) => idx !== i)));
+  };
+
   const addCard = async () => {
     const q = front.trim();
-    const a = back.trim();
+    const cleanAnswers = answers.map((a) => a.trim()).filter((a) => a.length > 0);
 
     if (!q) {
       setMessage({ kind: 'error', text: 'Please type a question first.' });
       frontRef.current?.focus();
       return;
     }
-    if (!a) {
-      setMessage({ kind: 'error', text: 'Please type an answer too — a flashcard needs both sides.' });
+    if (cleanAnswers.length === 0) {
+      setMessage({
+        kind: 'error',
+        text: 'Please type at least one answer — a flashcard needs both sides.',
+      });
       return;
     }
     if (saving) return;
@@ -74,22 +91,37 @@ export const FlashcardPopup = () => {
       }
 
       await rem.setText([q]);
-      await rem.setBackText([a]);
       if (parentRemId) {
         await rem.setParent(parentRemId);
       }
+
+      if (cleanAnswers.length === 1) {
+        // Simple inline card: question >> answer.
+        await rem.setBackText([cleanAnswers[0]]);
+      } else {
+        // List card: the question, with each answer as a child bullet to recall.
+        for (const ans of cleanAnswers) {
+          const child = await plugin.rem.createRem();
+          if (!child) continue;
+          await child.setText([ans]);
+          await child.setParent(rem._id);
+          await child.setIsCardItem(true);
+        }
+      }
+
       await rem.setPracticeDirection(direction);
 
       const next = addedCount + 1;
       setAddedCount(next);
-      setMessage({ kind: 'ok', text: `Added ✓  (${next} this session)` });
+      const kind = cleanAnswers.length === 1 ? 'card' : 'list card';
+      setMessage({ kind: 'ok', text: `Added ${kind} ✓  (${next} this session)` });
 
       // Clear for the next card and return focus to the question box.
       setFront('');
-      setBack('');
+      setAnswers(['']);
       frontRef.current?.focus();
     } catch (e) {
-      setMessage({ kind: 'error', text: "Something went wrong while saving. Please try again." });
+      setMessage({ kind: 'error', text: 'Something went wrong while saving. Please try again.' });
     } finally {
       setSaving(false);
     }
@@ -110,6 +142,8 @@ export const FlashcardPopup = () => {
   const inputClass =
     'w-full p-2 rounded-md resize-none rn-clr-background-primary rn-clr-content-primary ' +
     'border border-solid rn-clr-border-opaque focus:outline-none box-border';
+
+  const isList = answers.filter((a) => a.trim().length > 0).length > 1;
 
   return (
     <div
@@ -134,21 +168,49 @@ export const FlashcardPopup = () => {
         ref={frontRef}
         value={front}
         rows={2}
-        placeholder="e.g. What is the capital of France?"
+        placeholder="e.g. What are the primary colors?"
         className={inputClass}
         onChange={(e) => setFront(e.target.value)}
       />
 
-      <label className="block text-xs font-medium rn-clr-content-secondary mb-1 mt-3">
-        Answer (back)
-      </label>
-      <textarea
-        value={back}
-        rows={2}
-        placeholder="e.g. Paris"
-        className={inputClass}
-        onChange={(e) => setBack(e.target.value)}
-      />
+      <div className="flex items-baseline justify-between mb-1 mt-3">
+        <label className="block text-xs font-medium rn-clr-content-secondary">
+          {isList ? 'Answers (a list to recall)' : 'Answer (back)'}
+        </label>
+      </div>
+
+      {answers.map((ans, i) => (
+        <div key={i} className="flex items-start gap-2 mb-2">
+          <textarea
+            value={ans}
+            rows={1}
+            placeholder={answers.length > 1 ? `Answer ${i + 1}` : 'e.g. Red, yellow, blue'}
+            className={inputClass}
+            onChange={(e) => setAnswerAt(i, e.target.value)}
+          />
+          {answers.length > 1 && (
+            <button
+              type="button"
+              title="Remove this answer"
+              onClick={() => removeAnswerLine(i)}
+              className="px-2 py-2 rounded-md cursor-pointer border border-solid rn-clr-border-opaque rn-clr-background-primary rn-clr-content-secondary"
+            >
+              ✕
+            </button>
+          )}
+        </div>
+      ))}
+
+      <button
+        type="button"
+        onClick={addAnswerLine}
+        className="text-xs cursor-pointer border-0 bg-transparent rn-clr-content-accent p-0 mt-1"
+      >
+        + Add another answer
+      </button>
+      <p className="text-xs rn-clr-content-tertiary mt-1 mb-0">
+        One answer makes a simple card. Two or more make a list card (recall them all).
+      </p>
 
       <label className="block text-xs font-medium rn-clr-content-secondary mb-1 mt-3">
         How do you want to be quizzed?
@@ -169,9 +231,7 @@ export const FlashcardPopup = () => {
         <div
           className={
             'text-sm mt-3 ' +
-            (message.kind === 'error'
-              ? 'rn-clr-content-negative'
-              : 'rn-clr-content-positive')
+            (message.kind === 'error' ? 'rn-clr-content-negative' : 'rn-clr-content-positive')
           }
         >
           {message.text}
