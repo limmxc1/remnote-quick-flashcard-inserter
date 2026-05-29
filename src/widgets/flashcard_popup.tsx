@@ -42,6 +42,7 @@ interface OutlineNode {
   back?: string; // inline cards only
   dir?: Direction; // inline cards only
   indent: number;
+  level?: number; // heading level (number of leading #), headings only
   children: OutlineNode[];
   isListItem?: boolean; // true when this node is a recall item of a list card
 }
@@ -58,7 +59,8 @@ const indentOf = (line: string): number => {
 const classify = (line: string): Omit<OutlineNode, 'indent' | 'children'> => {
   const t = line.trim();
   if (t.startsWith('#')) {
-    return { kind: 'heading', text: t.replace(/^#+\s*/, '') };
+    const level = (t.match(/^#+/)?.[0].length) ?? 1;
+    return { kind: 'heading', text: t.replace(/^#+\s*/, ''), level };
   }
   const delims: [string, Direction][] = [
     ['<>', 'both'],
@@ -96,26 +98,49 @@ interface ParseResult {
 
 const parseOutline = (text: string): ParseResult => {
   const roots: OutlineNode[] = [];
-  const stack: { indent: number; node: OutlineNode }[] = [];
+  // Two kinds of nesting work together:
+  //  - "# / ##" headings build the section tree by their level, and
+  //  - within a section, indentation nests bullets (e.g. a list card's items).
+  const headingStack: { level: number; node: OutlineNode }[] = [];
+  let contentStack: { indent: number; node: OutlineNode }[] = [];
+  let currentHeading: OutlineNode | undefined;
 
   for (const rawLine of (text || '').split('\n')) {
     if (!rawLine.trim()) continue; // blank lines keep the current nesting
-    const indent = indentOf(rawLine);
     const info = classify(rawLine);
     if (!info.text) continue; // nothing meaningful on this line
 
-    const node: OutlineNode = { ...info, indent, children: [] };
+    if (info.kind === 'heading') {
+      const level = info.level ?? 1;
+      const node: OutlineNode = { ...info, indent: 0, children: [] };
+      // A heading nests under the nearest earlier heading of a higher level.
+      while (headingStack.length && headingStack[headingStack.length - 1].level >= level)
+        headingStack.pop();
+      const parent = headingStack.length ? headingStack[headingStack.length - 1].node : undefined;
+      if (parent) parent.children.push(node);
+      else roots.push(node);
+      headingStack.push({ level, node });
+      currentHeading = node;
+      contentStack = []; // start a fresh body under this heading
+      continue;
+    }
 
-    // Find this line's parent: the nearest earlier line indented less than it.
-    while (stack.length && stack[stack.length - 1].indent >= indent) stack.pop();
-    const parent = stack.length ? stack[stack.length - 1].node : undefined;
+    const indent = indentOf(rawLine);
+    const node: OutlineNode = { ...info, indent, children: [] };
+    // Within the current section, find this line's parent by indentation; if
+    // it's at the section's base level, it hangs off the heading itself.
+    while (contentStack.length && contentStack[contentStack.length - 1].indent >= indent)
+      contentStack.pop();
+    const parent = contentStack.length
+      ? contentStack[contentStack.length - 1].node
+      : currentHeading;
     if (parent) {
       if (parent.kind === 'list') node.isListItem = true;
       parent.children.push(node);
     } else {
       roots.push(node);
     }
-    stack.push({ indent, node });
+    contentStack.push({ indent, node });
   }
 
   const warnings: string[] = [];
