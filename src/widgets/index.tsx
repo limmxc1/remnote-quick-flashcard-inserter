@@ -33,25 +33,31 @@ async function onActivate(plugin: ReactRNPlugin) {
       let parentRemId: string | undefined;
       let parentName = 'your notes';
 
+      // Helper: turn a rem's text into a short readable name, or '' if empty.
+      const nameOf = async (remId: string | undefined): Promise<string> => {
+        if (!remId) return '';
+        const rem = await plugin.rem.findOne(remId);
+        if (!rem?.text) return '';
+        return (await plugin.richText.toString(rem.text)).trim();
+      };
+
       const focusedRem = await plugin.focus.getFocusedRem();
+      const openRemId = await plugin.window.getOpenPaneRemId(undefined);
+
       if (focusedRem) {
         parentRemId = focusedRem._id;
-      } else {
-        const openRemId = await plugin.window.getOpenPaneRemId(undefined);
-        if (openRemId) {
-          parentRemId = openRemId;
-        }
+      } else if (openRemId) {
+        parentRemId = openRemId;
       }
 
-      if (parentRemId) {
-        const parentRem = await plugin.rem.findOne(parentRemId);
-        const text = parentRem?.text;
-        if (text) {
-          const asString = (await plugin.richText.toString(text)).trim();
-          if (asString) {
-            parentName = asString;
-          }
-        }
+      // Show the most meaningful label we can: the focused bullet's text, or
+      // (if that bullet is empty) the name of the document it lives in.
+      const focusedName = await nameOf(parentRemId);
+      const docName = await nameOf(openRemId);
+      if (focusedName) {
+        parentName = focusedName;
+      } else if (docName) {
+        parentName = docName;
       }
 
       await plugin.widget.openPopup(POPUP_WIDGET, { parentRemId, parentName });

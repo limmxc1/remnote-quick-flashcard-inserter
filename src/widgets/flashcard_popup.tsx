@@ -148,8 +148,8 @@ export const FlashcardPopup = () => {
   return (
     <div
       onKeyDown={onKeyDown}
-      className="p-4 rn-clr-background-primary rn-clr-content-primary"
-      style={{ width: '100%' }}
+      className="p-4 box-border rn-clr-background-primary rn-clr-content-primary"
+      style={{ width: '100%', maxWidth: '100%', overflowX: 'hidden' }}
     >
       <div className="flex items-baseline justify-between mb-1">
         <h1 className="text-lg font-semibold m-0">Insert Flashcard</h1>
