@@ -90,11 +90,15 @@ paracetamol overdose antidote <> N-acetylcysteine      ← both ways; clean 1:1,
 ## Special card types (cheat-sheet)
 
 - **Numbers / values / doses** → bare value + unit only (see Rule 3 exception). A conditional value becomes a 2-item list card, not prose (`statin — start if QRISK ↓ / ≥10% primary prevention / any value in established CVD`).
-- **Comparisons ("X vs Y")** → ONE side-by-side list card with both labelled. (User's explicit preference.)
+- **Comparisons ("X vs Y")** → a native RemNote **table built on slots** — NOT a list card, NOT typed `>>` cards. Rows = the things compared, columns = attributes; each filled cell auto-becomes one atomic card. Build it by hand in RemNote (type `/table`). **THIS PLUGIN CANNOT MAKE TABLES**, so for a comparison I hand over the table layout for the user to build, not pasteable cards. To counter the per-cell mix-up risk (e.g. confusing the DKA-row card with the HHS-row card), optionally add 1–2 typed "feature → which one" discriminator cards (the plugin *can* insert these) for the most decisive features.
   ```
-  UC vs Crohn's ↓
-    UC: continuous from rectum, mucosal only
-    Crohn's: skip lesions, transmural, mouth-to-anus
+          | diabetes type | ketones | acidosis | glucose
+    DKA   | type 1        | high    | present  | often >11
+    HHS   | type 2        | minimal | absent   | very high (>30), hyperosmolar
+
+  optional discriminators (typed cards, plugin-insertable):
+    high ketones + acidosis >> DKA
+    glucose >30 + hyperosmolar, no acidosis >> HHS
   ```
 - **Ordered sequences (order matters: algorithms, cascades, stages 1→5)** → NEVER a plain list card (a list is unordered). Chain "what comes next" cards instead.
   ```
