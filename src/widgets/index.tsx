@@ -24,7 +24,8 @@ async function onActivate(plugin: ReactRNPlugin) {
   await plugin.app.registerCommand({
     id: 'insert-flashcard',
     name: 'Insert Flashcard',
-    description: 'Add a new flashcard (question + answer) to the document you are in.',
+    description:
+      'Add flashcards to the document you are in — one at a time, or paste a whole outline at once.',
     quickCode: 'card',
     action: async () => {
       // Work out where the new card should live, captured BEFORE the popup
@@ -66,7 +67,7 @@ async function onActivate(plugin: ReactRNPlugin) {
 
   // Register the popup widget that holds the add-a-flashcard form.
   await plugin.app.registerWidget(POPUP_WIDGET, WidgetLocation.Popup, {
-    dimensions: { height: 'auto', width: 440 },
+    dimensions: { height: 'auto', width: 480 },
   });
 }
 

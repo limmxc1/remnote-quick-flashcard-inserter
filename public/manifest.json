@@ -6,12 +6,12 @@
   "repoUrl": "https://github.com/limmxc1/remnote-quick-flashcard-inserter",
   "version": {
     "major": 0,
-    "minor": 1,
+    "minor": 2,
     "patch": 0
   },
   "theme": [],
   "enableOnMobile": true,
-  "description": "Quickly add flashcards (question + answer) from a simple popup, without breaking your flow. Pick the practice direction and keep adding cards one after another.",
+  "description": "Quickly add flashcards from a simple popup, without breaking your flow. Add cards one at a time, or paste a whole outline to create many cards (and list cards) at once.",
   "requestNative": false,
   "requiredScopes": [
     {
