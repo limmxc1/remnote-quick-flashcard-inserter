@@ -3,9 +3,8 @@ import {
   usePlugin,
   renderWidget,
   useRunAsync,
-  useTracker,
+  useTrackerPlugin,
   WidgetLocation,
-  SetRemType,
 } from '@remnote/plugin-sdk';
 
 type Direction = 'forward' | 'backward' | 'both';
@@ -328,7 +327,7 @@ export const FlashcardPopup = () => {
   const parentName: string = ctx?.contextData?.parentName ?? 'your notes';
 
   // The user's chosen default direction (from plugin settings).
-  const defaultDirection = useTracker(
+  const defaultDirection = useTrackerPlugin(
     (rp) => rp.settings.getSetting<Direction>('default-direction')
   );
 
@@ -440,59 +439,57 @@ export const FlashcardPopup = () => {
     }
   };
 
-  // Build a real RemNote comparison table: the title is a concept, each column
-  // is a slot under it, and each row is tagged with the concept. Every filled
-  // box becomes its own forward flashcard (front = the column, back = the value).
+  // Build a real RemNote table (the grid view). The title becomes a tag, each
+  // column becomes a property of that tag, and `createTable` makes the grid.
+  // Each row is a Rem tagged with the tag; filling a property value both shows
+  // it in the grid AND generates an atomic flashcard (front = column, back = value).
   const createTable = async (
     t: TableData,
     parentId: string | undefined,
     onProgress: () => void
   ) => {
-    const concept = await plugin.rem.createRem();
-    if (!concept) return;
-    await concept.setText([t.title]);
-    if (parentId) await concept.setParent(parentId);
-    await concept.setType(SetRemType.CONCEPT);
+    // The tag whose properties become the table's columns.
+    const tag = await plugin.rem.createRem();
+    if (!tag) return;
+    await tag.setText([t.title]);
+    if (parentId) await tag.setParent(parentId);
     onProgress();
 
-    // Columns become slots (the shared properties the rows are compared on).
-    const slotIds: string[] = [];
+    // Each column is a property of the tag (define these before the table so
+    // the grid picks them up as its columns).
+    const propIds: string[] = [];
     for (const col of t.columns) {
-      const slot = await plugin.rem.createRem();
-      if (!slot) {
-        slotIds.push('');
+      const prop = await plugin.rem.createRem();
+      if (!prop) {
+        propIds.push('');
         continue;
       }
-      await slot.setText([col]);
-      await slot.setParent(concept._id);
-      await slot.setType(SetRemType.DESCRIPTOR);
-      await slot.setIsSlot(true);
-      slotIds.push(slot._id);
+      await prop.setText([col]);
+      await prop.setParent(tag._id);
+      await prop.setIsProperty(true);
+      propIds.push(prop._id);
       onProgress();
     }
 
-    // Each row is one thing being compared, tagged with the concept.
+    // The grid itself, bound to the tag.
+    const table = await plugin.rem.createTable(tag._id);
+    if (table && parentId) await table.setParent(parentId);
+    onProgress();
+
+    // Each row: a Rem tagged with the tag, living inside the table, with one
+    // value per column set as a tag-property value.
     for (const row of t.rows) {
       const inst = await plugin.rem.createRem();
       if (!inst) continue;
       await inst.setText([row.name]);
-      if (parentId) await inst.setParent(parentId);
-      await inst.addTag(concept._id);
+      await inst.setParent(table?._id ?? parentId ?? null);
+      await inst.addTag(tag._id);
       onProgress();
 
       for (let k = 0; k < t.columns.length; k++) {
         const val = (row.values[k] ?? '').trim();
-        if (!val) continue; // a blank box makes no card
-        const cell = await plugin.rem.createRem();
-        if (!cell) continue;
-        // Front references the column slot; this is what makes it a table cell.
-        const front = slotIds[k]
-          ? await plugin.richText.rem(slotIds[k]).value()
-          : [t.columns[k]];
-        await cell.setText(front);
-        await cell.setBackText([val]);
-        await cell.setParent(inst._id);
-        await cell.setPracticeDirection('forward');
+        if (!val || !propIds[k]) continue; // a blank box makes no card
+        await inst.setTagPropertyValue(propIds[k], [val]);
         onProgress();
       }
     }
@@ -564,7 +561,7 @@ export const FlashcardPopup = () => {
         stats.notes && `${stats.notes} note${stats.notes > 1 ? 's' : ''}`,
       ].filter(Boolean).join(', ');
       const tip = stats.tables
-        ? ' — open the comparison in RemNote and switch it to “Table” view to see the grid'
+        ? ' — added as a table; open it in RemNote to see the grid'
         : '';
       setBulkMessage({ kind: 'ok', text: `Added ${bits || `${stats.total} items`} ✓${tip}` });
       setBulkText('');
