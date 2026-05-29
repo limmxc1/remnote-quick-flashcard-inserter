@@ -1,0 +1,22 @@
+{
+  "manifestVersion": 1,
+  "id": "quick_flashcard_inserter",
+  "name": "Quick Flashcard Inserter",
+  "author": "limmxc1",
+  "repoUrl": "",
+  "version": {
+    "major": 0,
+    "minor": 1,
+    "patch": 0
+  },
+  "theme": [],
+  "enableOnMobile": true,
+  "description": "Quickly add flashcards (question + answer) from a simple popup, without breaking your flow. Pick the practice direction and keep adding cards one after another.",
+  "requestNative": false,
+  "requiredScopes": [
+    {
+      "type": "All",
+      "level": "ReadCreateModify"
+    }
+  ]
+}
